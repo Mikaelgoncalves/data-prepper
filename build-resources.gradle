@@ -4,4 +4,4 @@ ext.versionMap = [
         es_version: '7.10.2'
 ]
 
-ext.coreProjects = [project(':data-prepper-api'), project(':data-prepper-core'), project('data-prepper-plugins:common')]
+ext.coreProjects = [project(':data-prepper-api'), project(':data-prepper-core'), project('data-prepper-plugins:common')]GONCALVES
