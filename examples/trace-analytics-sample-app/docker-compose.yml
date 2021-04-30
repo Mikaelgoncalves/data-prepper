@@ -41,6 +41,7 @@ services:
     networks:
       - my_network
   otel-collector:
+    container_name: otel-collector
     restart: unless-stopped
     image: otel/opentelemetry-collector:0.24.0
     command: ["--config=/etc/otel-collector-config.yml"]
@@ -48,46 +49,62 @@ services:
       - ./opentelemetry-collector/otel-collector-config.yml:/etc/otel-collector-config.yml
       - ../demo/demo-data-prepper.crt:/etc/demo-data-prepper.crt
     ports:
-      - "55680:55680"
+      - "4317:4317"
     depends_on:
       - data-prepper
     networks:
       - my_network
-  mysql:
-    restart: unless-stopped
-    image: mysql:latest
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus
+    links:
+      - alertmanager
     ports:
-      - "3306:3306"
-    environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+      - "9090:9090"
+    volumes:
+      - /vagrant/data-prepper/data:/etc/prometheus
+      - /vagrant/data-prepper/data/prom_data:/prometheus
     networks:
       - my_network
-  sample-app:
-    restart: unless-stopped
-    build:
-      context: sample-app
-      dockerfile: Dockerfile
+  alertmanager:
+    container_name: alertmanager
+    image: prom/alertmanager
+    command: --config.file=/etc/prometheus/alertmanager.yml
     ports:
-      - '8082:8082' # inventory
-      - '8083:8083' # database
-      - '8084:8084' # payment
-      - '8085:8085' # auth
-      - '8086:8086' # recommendation
-      - '8087:8087' # analytics-service
-      - '8088:8088' # order
-      - '8089:8089' # client-dashboard
-    environment:
-      - OTEL_EXPORTER=otlp
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:55680
-      - OTEL_RESOURCE_ATTRIBUTES=service.name=analytics-service
-      - OTLP=otel-collector
-      - MYSQL_HOST=mysql
-      - MYSQL_PORT=3306
-      - WAIT_HOSTS=otel-collector:55680, mysql:3306
-    depends_on:
-      - otel-collector
-      - mysql
+      - "9093:9093"
+    volumes:
+      - /vagrant/data-prepper/data:/etc/prometheus
     networks:
       - my_network
+  jenkins:
+    image: jenkinsci/blueocean
+    container_name: jenkins
+    ports:
+      - 8080:8080
+    expose:
+      - "8080"
+    networks:
+      - my_network 
+  grafana:
+    container_name: grafana
+    image: grafana/grafana
+    ports:
+      - 3000:3000
+    expose:
+      - "3000"
+    networks:
+      - my_network
+  logstash:
+    container_name: logstash
+    image: docker.elastic.co/logstash/logstash-oss:7.10.2
+    ports:
+      - 80:80
+    expose:
+      - "80"
+    volumes:
+      - /vagrant/data-prepper/data/logstash.yml:/usr/share/logstash/pipeline/logstash.yml
+      - ../demo/root-ca.pem:/usr/share/logstash/root-ca.pem
+    networks:
+      - my_network    
 networks:
   my_network:
